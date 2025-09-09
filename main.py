@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import os
+import random
 import logging
 from dotenv import load_dotenv
 
@@ -39,6 +40,36 @@ async def on_ready():
         
     except Exception as e:
         print(f"Failed to sync commands: {e}")
+
+
+ironbundle_text_array = [
+    "Hydro Pump go brr!",
+    "Freeze Dry go brr!",
+    "Don't make me set up Aurora Veil!",
+    "Flip Turn! I'm outta here!",
+    "Beep boop! Ice type superiority!",
+    "My Speed even makes Flutter Mane quiver!",
+    "Ready to sweep with my Booster Energy!"
+]
+
+delibird_text_array = [
+    "Hello, gramps!",
+    "Delibird? Now that's a name I haven't heard in a long time."
+]
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+    
+    if "iron bundle" in message.content.lower():
+        random_response = random.choice(ironbundle_text_array)
+        await message.reply(random_response, mention_author=False)
+    elif "delibird" in message.content.lower():
+        random_response = random.choice(delibird_text_array)
+        await message.reply(random_response, mention_author=False)
+
+    await bot.process_commands(message)
 
 
 async def main():
