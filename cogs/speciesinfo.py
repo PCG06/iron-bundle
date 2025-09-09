@@ -1,11 +1,19 @@
-# Command: !speciesinfo <species_name / natdex_num>
+# Command: /speciesinfo <species_name / natdex_num>
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 import json
 
-with open("data/species_info.json", "r", encoding="utf-8") as f:
-    pokemon_data = json.load(f)
+try:
+    with open("data/species_info.json", "r", encoding="utf-8") as f:
+        pokemon_data = json.load(f)
+except FileNotFoundError:
+    print("ERROR: species_info.json file not found!")
+    pokemon_data = []
+except json.JSONDecodeError:
+    print("ERROR: Invalid JSON format in species_info.json!")
+    pokemon_data = []
 
 
 def build_embed(species, page: int):
@@ -83,28 +91,58 @@ class SpeciesInfo(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def speciesinfo(self, ctx, *, query: str):
-        query = query.strip().lower()
-        result = None
+    def _get_species_autocomplete(self):
+        """Helper function to get all species names for autocomplete"""
+        return [species["speciesName"] for species in pokemon_data]
 
-        for species in pokemon_data:
-            # Handle both numbers and names
-            if query.isdigit():
-                if int(query) == int(species["natDexNum"]):
-                    result = species
-                    break
+    async def species_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str
+    ) -> list[app_commands.Choice[str]]:
+        species_names = self._get_species_autocomplete()
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name in species_names
+            if current.lower() in name.lower()
+        ][:25]  # Discord limits to 25 choices
+
+    @app_commands.command(
+        name="speciesinfo",
+        description="Get information about a Pokémon species"
+    )
+    @app_commands.describe(query="The Pokémon name or National Dex number")
+    @app_commands.autocomplete(query=species_autocomplete)
+    async def speciesinfo(self, interaction: discord.Interaction, query: str):
+        try:
+            query = query.strip().lower()
+            result = None
+
+            for species in pokemon_data:
+                # Handle both numbers and names
+                if query.isdigit():
+                    if int(query) == int(species["natDexNum"]):
+                        result = species
+                        break
+                else:
+                    if query == species["speciesName"].lower():
+                        result = species
+                        break
+
+            if result:
+                embed = build_embed(result, 1)
+                view = SpeciesView(result)
+                await interaction.response.send_message(embed=embed, view=view)
             else:
-                if query == species["speciesName"].lower():
-                    result = species
-                    break
+                await interaction.response.send_message(f"No Pokémon found for '{query}'", ephemeral=True)
 
-        if result:
-            embed = build_embed(result, 1)
-            view = SpeciesView(result)
-            await ctx.send(embed=embed, view=view)
-        else:
-            await ctx.send(f"No Pokémon found for '{query}'")
+        except ValueError:
+            await interaction.response.send_message("Please enter a valid number for National Dex search.", ephemeral=True)
+        except KeyError as e:
+            await interaction.response.send_message(f"Data format error: Missing key {e}", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"An unexpected error occurred: {e}", ephemeral=True)
+            print(f"Error in speciesinfo command: {e}")
 
 
 async def setup(bot):

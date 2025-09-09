@@ -1,18 +1,14 @@
 # Iron Bundle
 
-Iron Bundle is a Pokedex-like Discord bot.
+Iron Bundle is a Pokédex-like Discord bot.
 
-Run command `!speciesinfo <species_name>` or `!speciesinfo <natdex_num>` to check a Pokemon's information.
+Run command `/speciesinfo <species_name>` or `/speciesinfo <natdex_num>` to check a Pokémon's information.
 
 Eg:
 
-`!speciesinfo Charizard`
+`/speciesinfo query:Iron Bundle`
 
-![speciesinfo_name](pics/speciesinfo_name.png)
-
-`!speciesinfo 6`
-
-![speciesinfo_num](pics/speciesinfo_num.png)
+![speciesinfo](pics/speciesinfo.png)
 
 Page 2: Level Up moves
 
