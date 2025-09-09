@@ -23,9 +23,12 @@ async def on_ready():
 
 
 async def main():
-    await bot.load_extension("cogs.species_info")
+    await bot.load_extension("cogs.speciesinfo")
     await bot.start(TOKEN)
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print(f"{bot.user.name} is offline!")
