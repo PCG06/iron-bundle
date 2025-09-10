@@ -16,7 +16,10 @@ if SERVER_ID is None:
 
 TESTING = False
 
-handler = logging.FileHandler(filename='logs/discord.log', encoding='utf-8', mode='w')
+log_path = 'logs/discord.log'
+os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+handler = logging.FileHandler(filename=log_path, encoding='utf-8', mode='w')
 
 intents = discord.Intents.all()
 intents.message_content = True
