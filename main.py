@@ -27,6 +27,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"{bot.user.name} is online!")
+
+    await bot.change_presence(
+        activity=discord.CustomActivity(name="Quarking my Drive!"),
+        status=discord.Status.idle
+    )
     
     try:
         if TESTING:
@@ -54,7 +59,7 @@ ironbundle_text_array = [
 
 delibird_text_array = [
     "Hello, gramps!",
-    "Delibird? Now that's a name I haven't heard in a long time."
+    "Now that's a name I haven't heard in a long time."
 ]
 
 @bot.event
@@ -62,10 +67,21 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    if "iron bundle" in message.content.lower():
+    message_content = message.content.lower()
+    ironbundle_index = message_content.find("iron bundle")
+    delibird_index = message_content.find("delibird")
+
+    if ironbundle_index != -1 and delibird_index != -1:
+        if ironbundle_index < delibird_index:
+            random_response = random.choice(ironbundle_text_array)
+            await message.reply(random_response, mention_author=False)
+        else:
+            random_response = random.choice(delibird_text_array)
+            await message.reply(random_response, mention_author=False)
+    elif ironbundle_index != -1:
         random_response = random.choice(ironbundle_text_array)
         await message.reply(random_response, mention_author=False)
-    elif "delibird" in message.content.lower():
+    elif delibird_index != -1:
         random_response = random.choice(delibird_text_array)
         await message.reply(random_response, mention_author=False)
 
