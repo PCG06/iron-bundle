@@ -16,9 +16,61 @@ except json.JSONDecodeError:
     pokemon_data = []
 
 
-def build_embed(species, page: int):
+def get_available_pages(species):
+    """Determine which pages have content for this species"""
+    pages = [1]  # Page 1 (basic info) is always available
+    
+    # Check if page 2 (evolutions/forms) has content
+    has_evolutions = "evolutions" in species and species["evolutions"]
+    has_form_changes = "formChanges" in species and species["formChanges"]
+    if has_evolutions or has_form_changes:
+        pages.append(2)
+    
+    # Check if page 3 (level-up moves) has content
+    if "levelUpMoves" in species and species["levelUpMoves"]:
+        pages.append(3)
+    
+    # Check if page 4 (egg moves) has content
+    if "eggMoves" in species and species["eggMoves"]:
+        pages.append(4)
+    
+    # Check if page 5 (teachable moves) has content
+    if "teachableLearnset" in species and species["teachableLearnset"]:
+        pages.append(5)
+    
+    return pages
+
+
+def format_ev_yield(species):
+    """Format EV yield information into a readable string"""
+    ev_stats = []
+    ev_fields = ["evYield_HP", "evYield_Attack", "evYield_Defense", 
+                 "evYield_SpAttack", "evYield_SpDefense", "evYield_Speed"]
+    
+    stat_names = {
+        "evYield_HP": "HP",
+        "evYield_Attack": "Attack",
+        "evYield_Defense": "Defense",
+        "evYield_SpAttack": "Sp. Attack",
+        "evYield_SpDefense": "Sp. Defense",
+        "evYield_Speed": "Speed"
+    }
+    
+    for field in ev_fields:
+        if field in species and species[field] > 0:
+            ev_stats.append(f"{stat_names[field]}: {species[field]}")
+    
+    if ev_stats:
+        return ", ".join(ev_stats)
+    return "None"
+
+
+def build_embed(species, page_num, available_pages):
     """Builds the embed for the given page of species info."""
-    if page == 1:
+    # Map the virtual page number to the actual content type
+    page_type = available_pages[page_num - 1]
+    
+    if page_type == 1:  # Basic info
         embed = discord.Embed(
             title=f"{species['speciesName']} (#{species['natDexNum']})",
             description=f"{species['monCategory']} Pokémon",
@@ -41,50 +93,100 @@ def build_embed(species, page: int):
         embed.add_field(name="Hidden Ability", value=species.get("Hidden Ability", "None"), inline=False)
         embed.add_field(name="Catch Rate", value=species.get("catchRate", "N/A"), inline=True)
         embed.add_field(name="Exp Yield", value=species.get("expYield", "N/A"), inline=True)
-        embed.set_footer(text=f"Height: {species.get('height', 'N/A')} | Weight: {species.get('weight', 'N/A')}")
+        embed.add_field(name="EV Yield", value=format_ev_yield(species), inline=False)
+        embed.add_field(name="Height", value=species.get('height', 'N/A'), inline=True)
+        embed.add_field(name="Weight", value=species.get('weight', 'N/A'), inline=True)
+        embed.add_field(name="Egg Cycles", value=species.get('eggCycles', 'N/A'), inline=True)
         return embed
 
-    elif page == 2:  # Level-up moves
+    elif page_type == 2:  # Evolutions and form changes
+        embed = discord.Embed(
+            title=f"{species['speciesName']} - Evolutions & Forms",
+            color=discord.Color.green()
+        )
+        
+        # Add evolutions if present
+        has_evolutions = "evolutions" in species and species["evolutions"]
+        if has_evolutions:
+            evo_text = ""
+            for evo in species["evolutions"]:
+                evo_text += f"**{evo.get('targetSpecies', 'Unknown')}**\n"
+                evo_text += f"Method: {evo.get('method', 'Unknown')}\n"
+                if "Item" in evo:
+                    evo_text += f"Item: {evo['Item']}\n"
+                evo_text += "\n"
+            embed.add_field(name="Evolutions", value=evo_text, inline=False)
+        else:
+            embed.add_field(name="Evolutions", value="None", inline=False)
+        
+        # Add form changes if present
+        has_form_changes = "formChanges" in species and species["formChanges"]
+        if has_form_changes:
+            form_text = ""
+            for form in species["formChanges"]:
+                form_text += f"**{form.get('targetSpecies', 'Unknown')}**\n"
+                form_text += f"Method: {form.get('method', 'Unknown')}\n"
+                if "Item" in form:
+                    form_text += f"Item: {form['Item']}\n"
+                form_text += "\n"
+            embed.add_field(name="Form Changes", value=form_text, inline=False)
+        else:
+            embed.add_field(name="Form Changes", value="None", inline=False)
+            
+        return embed
+
+    elif page_type == 3:  # Level-up moves
         moves = [f"Lv {m['level']}: {m['move']}" for m in species.get("levelUpMoves", [])]
         text = "\n".join(moves) if moves else "None"
-        return discord.Embed(
+        embed = discord.Embed(
             title=f"{species['speciesName']} - Level-Up Moves",
             description=text,
             color=discord.Color.blue()
         )
+        return embed
 
-    elif page == 3:  # Egg moves
+    elif page_type == 4:  # Egg moves
         text = "\n".join(species.get("eggMoves", [])) or "None"
-        return discord.Embed(
+        embed = discord.Embed(
             title=f"{species['speciesName']} - Egg Moves",
             description=text,
             color=discord.Color.orange()
         )
+        return embed
 
-    elif page == 4:  # Teachable moves
+    elif page_type == 5:  # Teachable moves
         text = "\n".join(species.get("teachableLearnset", [])) or "None"
-        return discord.Embed(
+        embed = discord.Embed(
             title=f"{species['speciesName']} - Teachable Moves",
             description=text,
             color=discord.Color.purple()
         )
+        return embed
 
 
 class SpeciesView(discord.ui.View):
-    def __init__(self, species):
+    def __init__(self, species, available_pages):
         super().__init__(timeout=6000)  # ~1hr timeout
         self.species = species
-        self.page = 1
+        self.available_pages = available_pages
+        self.page_num = 1  # Current page index (1-based)
+        self.max_pages = len(available_pages)
 
     @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page = 4 if self.page == 1 else self.page - 1
-        await interaction.response.edit_message(embed=build_embed(self.species, self.page), view=self)
+        self.page_num = self.max_pages if self.page_num == 1 else self.page_num - 1
+        await interaction.response.edit_message(
+            embed=build_embed(self.species, self.page_num, self.available_pages), 
+            view=self
+        )
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page = 1 if self.page == 4 else self.page + 1
-        await interaction.response.edit_message(embed=build_embed(self.species, self.page), view=self)
+        self.page_num = 1 if self.page_num == self.max_pages else self.page_num + 1
+        await interaction.response.edit_message(
+            embed=build_embed(self.species, self.page_num, self.available_pages), 
+            view=self
+        )
 
 
 class SpeciesInfo(commands.Cog):
@@ -130,8 +232,9 @@ class SpeciesInfo(commands.Cog):
                         break
 
             if result:
-                embed = build_embed(result, 1)
-                view = SpeciesView(result)
+                available_pages = get_available_pages(result)
+                embed = build_embed(result, 1, available_pages)
+                view = SpeciesView(result, available_pages)
                 await interaction.response.send_message(embed=embed, view=view)
             else:
                 await interaction.response.send_message(f"No Pokémon found for '{query}'", ephemeral=True)
